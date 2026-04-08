@@ -1,0 +1,92 @@
+name: Build ONNX Runtime Windows (VS2022)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        onnx_version: [v1.15.1]
+        crt: [md, mt]
+        config: [Debug, Release]
+
+    runs-on: windows-2022
+    name: VS2022-${{ matrix.crt }}-${{ matrix.config }}
+
+    env:
+      BUILD_SCRIPT: scripts/build-onnxruntime.ps1
+      SHARED_PKG_NAME: onnxruntime-${{ matrix.onnx_version }}-windows-vs2022-shared-${{ matrix.crt }}-${{ matrix.config }}
+      STATIC_PKG_NAME: onnxruntime-${{ matrix.onnx_version }}-windows-vs2022-static-${{ matrix.crt }}-${{ matrix.config }}
+
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8.10'
+
+      - name: Checkout ONNX Runtime
+        uses: actions/checkout@v4
+        with:
+          repository: microsoft/onnxruntime
+          path: onnxruntime
+          ref: ${{ matrix.onnx_version }}
+          submodules: recursive
+
+      - name: Copy build script
+        run: |
+          cp ${{ env.BUILD_SCRIPT }} onnxruntime/
+          cp scripts/Launch-VsDevShell.ps1 onnxruntime/   # 如无此文件可忽略或提供
+
+      - name: Build x64
+        shell: powershell
+        run: |
+          cd onnxruntime
+          & '.\Launch-VsDevShell.ps1' -VsInstallationPath 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise' -SkipAutomaticLocation -HostArch amd64 -Arch amd64
+          .\build-onnxruntime.ps1 -VsArch x64 -VsVer v143 -VsCRT ${{ matrix.crt }} -Config ${{ matrix.config }}
+
+      - name: Build x86
+        shell: powershell
+        run: |
+          cd onnxruntime
+          & '.\Launch-VsDevShell.ps1' -VsInstallationPath 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise' -SkipAutomaticLocation -HostArch amd64 -Arch x86
+          .\build-onnxruntime.ps1 -VsArch x86 -VsVer v143 -VsCRT ${{ matrix.crt }} -Config ${{ matrix.config }}
+
+      - name: Build arm64
+        shell: powershell
+        run: |
+          cd onnxruntime
+          & '.\Launch-VsDevShell.ps1' -VsInstallationPath 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise' -SkipAutomaticLocation -HostArch amd64 -Arch arm64
+          .\build-onnxruntime.ps1 -VsArch arm64 -VsVer v143 -VsCRT ${{ matrix.crt }} -Config ${{ matrix.config }}
+
+      - name: Package shared libraries
+        run: |
+          mkdir windows-x64 windows-x86 windows-arm64
+          cp -r onnxruntime/build-x64-v143-${{ matrix.crt }}/${{ matrix.config }}/install/* windows-x64/
+          cp -r onnxruntime/build-x86-v143-${{ matrix.crt }}/${{ matrix.config }}/install/* windows-x86/
+          cp -r onnxruntime/build-arm64-v143-${{ matrix.crt }}/${{ matrix.config }}/install/* windows-arm64/
+          7z a ${{ env.SHARED_PKG_NAME }}.7z windows-x64 windows-x86 windows-arm64
+
+      - name: Package static libraries
+        run: |
+          mkdir windows-x64 windows-x86 windows-arm64
+          cp -r onnxruntime/build-x64-v143-${{ matrix.crt }}/${{ matrix.config }}/install-static/* windows-x64/
+          cp -r onnxruntime/build-x86-v143-${{ matrix.crt }}/${{ matrix.config }}/install-static/* windows-x86/
+          cp -r onnxruntime/build-arm64-v143-${{ matrix.crt }}/${{ matrix.config }}/install-static/* windows-arm64/
+          7z a ${{ env.STATIC_PKG_NAME }}.7z windows-x64 windows-x86 windows-arm64
+
+      - name: Upload shared library
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.SHARED_PKG_NAME }}
+          path: ${{ env.SHARED_PKG_NAME }}.7z
+
+      - name: Upload static library
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.STATIC_PKG_NAME }}
+          path: ${{ env.STATIC_PKG_NAME }}.7z
