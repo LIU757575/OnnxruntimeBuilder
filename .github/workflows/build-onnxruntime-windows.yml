@@ -44,7 +44,7 @@ jobs:
       - name: Copy build scripts
         run: |
           cp ${{ env.BUILD_SCRIPT }} onnxruntime/
-          cp scripts/Launch-VsDevShell.ps1 onnxruntime/   # 详见后文说明
+          cp Launch-VsDevShell.ps1 onnxruntime/   # 详见后文说明
 
       # 5. 构建 x64 架构
       - name: Build x64
