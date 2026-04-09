@@ -16,7 +16,7 @@ jobs:
     name: VS2022-${{ matrix.crt }}-${{ matrix.config }}
 
     env:
-      BUILD_SCRIPT: scripts/build-onnxruntime.ps1
+      BUILD_SCRIPT: build-onnxruntime.ps1
       SHARED_PKG_NAME: onnxruntime-${{ matrix.onnx_version }}-windows-vs2022-shared-${{ matrix.crt }}-${{ matrix.config }}
       STATIC_PKG_NAME: onnxruntime-${{ matrix.onnx_version }}-windows-vs2022-static-${{ matrix.crt }}-${{ matrix.config }}
 
